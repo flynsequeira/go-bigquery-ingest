@@ -190,6 +190,7 @@ func loadSymbolMap() (map[string]string, error) {
 // getUSDValue gets the conversion rate to USD from CoinGecko API
 func getUSDValue(symbolID string, currencyValueDecimal float64, date string) (float64, error) {
 	url := fmt.Sprintf("https://api.coingecko.com/api/v3/simple/price?ids=%s&vs_currencies=usd&date=%s", symbolID, date)
+	fmt.Println("url:", url)
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return 0, fmt.Errorf("http.NewRequest: %w", err)
@@ -207,6 +208,8 @@ func getUSDValue(symbolID string, currencyValueDecimal float64, date string) (fl
 
 	if resp.StatusCode != http.StatusOK {
 		return 0, fmt.Errorf("unexpected status: %s", resp.Status)
+	} else {
+		fmt.Println("SUCCESS")
 	}
 
 	var result map[string]map[string]float64
