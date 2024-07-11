@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"os"
 	"time"
 
 	"cloud.google.com/go/storage"
@@ -74,13 +73,16 @@ func TransformCSV(ctx context.Context, e event.Event) error {
 		return fmt.Errorf("Object(%q).NewReader: %w", data.Name, err)
 	}
 	defer r.Close()
-
+	log.Printf("GOT BUCKET AND GETTING SYMBOL")
 	// Load symbol_id_map.json
-	symbolMap, err := loadSymbolMap()
+
+	// Load symbol_id_map.json from GCP Storage
+	symbolMap, err := loadSymbolMapFromGCS(ctx, client, "blockdata-input", "symbol_id_map.json")
 	if err != nil {
 		return fmt.Errorf("Failed to load symbol map: %w", err)
 	}
 
+	log.Printf("obtained symbol map")
 	// Output setup (change as needed)
 	outputBucketName := "blockdata-output" // Or use a dynamic name
 	outputFileName := fmt.Sprintf("transformed_%s", data.Name)
@@ -102,7 +104,10 @@ func TransformCSV(ctx context.Context, e event.Event) error {
 	header := []string{"key", "date", "project_id", "volume", "currency", "volume_usd"}
 	writer.Write(header)
 
+	log.Printf("Looping through records")
+
 	for _, record := range records[1:] { // Skip the header row
+		log.Printf("Loop x")
 		ts := record[1]
 		projectID := record[3]
 		propsJSON := record[14]
@@ -170,18 +175,19 @@ func TransformCSV(ctx context.Context, e event.Event) error {
 	return nil
 }
 
-// loadSymbolMap loads the symbol_id map from the JSON file in the same directory
-func loadSymbolMap() (map[string]string, error) {
-	filePath := "symbol_id_map.json"
-
-	data, err := os.ReadFile(filePath)
+// loadSymbolMapFromGCS loads the symbol_id map from a JSON file in a GCP Storage bucket
+func loadSymbolMapFromGCS(ctx context.Context, client *storage.Client, bucketName, fileName string) (map[string]string, error) {
+	bucket := client.Bucket(bucketName)
+	obj := bucket.Object(fileName)
+	r, err := obj.NewReader(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("os.ReadFile: %w", err)
+		return nil, fmt.Errorf("Object(%q).NewReader: %w", fileName, err)
 	}
+	defer r.Close()
 
 	var symbolMap map[string]string
-	if err := json.Unmarshal(data, &symbolMap); err != nil {
-		return nil, fmt.Errorf("json.Unmarshal: %w", err)
+	if err := json.NewDecoder(r).Decode(&symbolMap); err != nil {
+		return nil, fmt.Errorf("json.NewDecoder: %w", err)
 	}
 
 	return symbolMap, nil
@@ -190,7 +196,7 @@ func loadSymbolMap() (map[string]string, error) {
 // getUSDValue gets the conversion rate to USD from CoinGecko API
 func getUSDValue(symbolID string, currencyValueDecimal float64, date string) (float64, error) {
 	url := fmt.Sprintf("https://api.coingecko.com/api/v3/simple/price?ids=%s&vs_currencies=usd&date=%s", symbolID, date)
-	fmt.Println("url:", url)
+	log.Println("url:", url)
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return 0, fmt.Errorf("http.NewRequest: %w", err)
@@ -209,9 +215,8 @@ func getUSDValue(symbolID string, currencyValueDecimal float64, date string) (fl
 	if resp.StatusCode != http.StatusOK {
 		return 0, fmt.Errorf("unexpected status: %s", resp.Status)
 	} else {
-		fmt.Println("SUCCESS")
+		log.Println("SUCCESS")
 	}
-
 	var result map[string]map[string]float64
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
 		return 0, fmt.Errorf("json.NewDecoder: %w", err)
