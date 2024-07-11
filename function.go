@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"os"
 	"time"
 
 	"cloud.google.com/go/storage"
@@ -73,6 +74,12 @@ func TransformCSV(ctx context.Context, e event.Event) error {
 	}
 	defer r.Close()
 
+	// Load symbol_id_map.json
+	symbolMap, err := loadSymbolMap()
+	if err != nil {
+		return fmt.Errorf("Failed to load symbol map: %w", err)
+	}
+
 	// Output setup (change as needed)
 	outputBucketName := "blockdata-output" // Or use a dynamic name
 	outputFileName := fmt.Sprintf("transformed_%s", data.Name)
@@ -94,7 +101,7 @@ func TransformCSV(ctx context.Context, e event.Event) error {
 	// ... (The rest of the CSV transformation logic is identical to your previous code)
 	//    Read header, skip header row, process records, write transformed records
 	// Write the header for the output CSV file
-	header := []string{"key", "date", "project_id", "vol_in_usd"}
+	header := []string{"key", "date", "project_id", "volume", "currency"}
 	writer.Write(header)
 
 	for _, record := range records[1:] { // Skip the header row
@@ -139,17 +146,40 @@ func TransformCSV(ctx context.Context, e event.Event) error {
 			continue
 		}
 
+		// Map CurrencySymbol to symbol_id
+		symbolID, ok := symbolMap[props.CurrencySymbol]
+		if !ok {
+			fmt.Println("error")
+			continue
+		}
+
 		// Create a unique key for the map
 		key := date + "_" + projectID
 
 		// For simplicity, let's assume 1 currency unit = 1 USD
 		// In a real scenario, you would fetch the conversion rate from an API like CoinGecko
-		volInUsd := currencyValueDecimal
-		transformedRecord := []string{key, date, projectID, fmt.Sprintf("%.2f", volInUsd)}
+		transformedRecord := []string{key, date, projectID, fmt.Sprintf("%.2f", currencyValueDecimal), symbolID}
 
 		// Write the transformed record to the output CSV file
 		writer.Write(transformedRecord)
 	}
 	log.Printf("Transformed CSV: %s/%s", outputBucketName, outputFileName)
 	return nil
+}
+
+// loadSymbolMap loads the symbol_id map from the JSON file in the same directory
+func loadSymbolMap() (map[string]string, error) {
+	filePath := "symbol_id_map.json"
+
+	data, err := os.ReadFile(filePath)
+	if err != nil {
+		return nil, fmt.Errorf("os.ReadFile: %w", err)
+	}
+
+	var symbolMap map[string]string
+	if err := json.Unmarshal(data, &symbolMap); err != nil {
+		return nil, fmt.Errorf("json.Unmarshal: %w", err)
+	}
+
+	return symbolMap, nil
 }
