@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strings"
 	"time"
 
 	"cloud.google.com/go/storage"
@@ -150,7 +151,7 @@ func TransformCSV(ctx context.Context, e event.Event) error {
 		}
 
 		// Map CurrencySymbol to symbol_id
-		symbolID, ok := symbolMap[props.CurrencySymbol]
+		symbolID, ok := symbolMap[strings.ToLower(props.CurrencySymbol)]
 		if !ok {
 			fmt.Println("error")
 			continue
