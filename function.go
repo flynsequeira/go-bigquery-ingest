@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"net/http"
 	"os"
 	"time"
 
@@ -98,10 +99,7 @@ func TransformCSV(ctx context.Context, e event.Event) error {
 	writer := csv.NewWriter(w)
 	defer writer.Flush()
 
-	// ... (The rest of the CSV transformation logic is identical to your previous code)
-	//    Read header, skip header row, process records, write transformed records
-	// Write the header for the output CSV file
-	header := []string{"key", "date", "project_id", "volume", "currency"}
+	header := []string{"key", "date", "project_id", "volume", "currency", "volume_usd"}
 	writer.Write(header)
 
 	for _, record := range records[1:] { // Skip the header row
@@ -153,12 +151,17 @@ func TransformCSV(ctx context.Context, e event.Event) error {
 			continue
 		}
 
+		// Get the conversion rate to USD
+		usdValue, err := getUSDValue(symbolID, currencyValueDecimal, date)
+		if err != nil {
+			fmt.Println("error")
+			continue
+		}
+
 		// Create a unique key for the map
 		key := date + "_" + projectID
 
-		// For simplicity, let's assume 1 currency unit = 1 USD
-		// In a real scenario, you would fetch the conversion rate from an API like CoinGecko
-		transformedRecord := []string{key, date, projectID, fmt.Sprintf("%.2f", currencyValueDecimal), symbolID}
+		transformedRecord := []string{key, date, projectID, fmt.Sprintf("%.2f", currencyValueDecimal), symbolID, fmt.Sprintf("%.2f", usdValue)}
 
 		// Write the transformed record to the output CSV file
 		writer.Write(transformedRecord)
@@ -182,4 +185,39 @@ func loadSymbolMap() (map[string]string, error) {
 	}
 
 	return symbolMap, nil
+}
+
+// getUSDValue gets the conversion rate to USD from CoinGecko API
+func getUSDValue(symbolID string, currencyValueDecimal float64, date string) (float64, error) {
+	url := fmt.Sprintf("https://api.coingecko.com/api/v3/simple/price?ids=%s&vs_currencies=usd&date=%s", symbolID, date)
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return 0, fmt.Errorf("http.NewRequest: %w", err)
+	}
+
+	req.Header.Set("accept", "application/json")
+	req.Header.Set("x-cg-api-key", "CG-MpAym1juMY83MMxEqGK3QBzT")
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return 0, fmt.Errorf("client.Do: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return 0, fmt.Errorf("unexpected status: %s", resp.Status)
+	}
+
+	var result map[string]map[string]float64
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return 0, fmt.Errorf("json.NewDecoder: %w", err)
+	}
+
+	usdRate, ok := result[symbolID]["usd"]
+	if !ok {
+		return 0, fmt.Errorf("usd rate not found for symbol: %s", symbolID)
+	}
+
+	return usdRate * currencyValueDecimal, nil
 }
