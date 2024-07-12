@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"cloud.google.com/go/pubsub"
 	"cloud.google.com/go/storage"
 	"github.com/GoogleCloudPlatform/functions-framework-go/functions"
 	"github.com/cloudevents/sdk-go/v2/event"
@@ -60,6 +61,14 @@ func TransformCSV(ctx context.Context, e event.Event) error {
 	log.Printf("Bucket: %s", data.Bucket)
 	log.Printf("File: %s", data.Name)
 
+	// PUB-SUB
+	pubsubClient, err := pubsub.NewClient(ctx, "blockdataproject")
+	if err != nil {
+		return fmt.Errorf("pubsub.NewClient: %w", err)
+	}
+	defer pubsubClient.Close()
+	topic := pubsubClient.Topic("transformed-data")
+
 	// GCP Storage setup
 	client, err := storage.NewClient(ctx)
 	if err != nil {
@@ -82,7 +91,7 @@ func TransformCSV(ctx context.Context, e event.Event) error {
 
 	// Output setup (change as needed)
 	outputBucketName := "blockdata-output" // Or use a dynamic name
-	outputFileName := fmt.Sprintf("transformed_%s", data.Name)
+	outputFileName := fmt.Sprintf("transformed_data.csv")
 	outputBucket := client.Bucket(outputBucketName)
 	outputObj := outputBucket.Object(outputFileName)
 	w := outputObj.NewWriter(ctx)
@@ -155,27 +164,37 @@ func TransformCSV(ctx context.Context, e event.Event) error {
 		usdRate, rateInCache := usdRateCache[cacheKey]
 
 		if !rateInCache {
-			// Get the conversion rate to USD
 			usdRate, err = getUSDRate(symbolID, date)
 			if err != nil {
 				fmt.Errorf("CacheKey(%s) | \n Error: %w", cacheKey, err)
 				continue
 			}
-			// Store rate in cache
 			usdRateCache[cacheKey] = usdRate
 		}
-		// Get the conversion rate to USD
 		usdValue := usdRate * currencyValueDecimal
 		// Create a unique key for the map
 		key := date + "_" + projectID
 		transformedRecord := []string{key, date, projectID, fmt.Sprintf("%.2f", currencyValueDecimal), symbolID, fmt.Sprintf("%.2f", usdValue)}
-		// Write the transformed record to the output CSV file
+		// Data to be published to Pub/Sub
+		jsonData, err := json.Marshal(transformedRecord) // Convert to JSON
+		if err != nil {
+			return fmt.Errorf("json.Marshal: %w", err)
+		}
+		msg := &pubsub.Message{
+			Data: jsonData,
+		}
+		result, err := topic.Publish(ctx, msg).Get(ctx)
+		if err != nil {
+			return fmt.Errorf("topic.Publish: %w", err)
+		}
+		log.Printf("Published message to Pub/Sub with ID: %s", result)
+
+		// data to store csv in output bucket
 		writer.Write(transformedRecord)
 	}
 	return nil
 }
 
-// loadSymbolMapFromGCS loads the symbol_id map from a JSON file in a GCP Storage bucket
 func loadSymbolMapFromGCS(ctx context.Context, client *storage.Client, bucketName, fileName string) (map[string]string, error) {
 	bucket := client.Bucket(bucketName)
 	obj := bucket.Object(fileName)
@@ -214,7 +233,7 @@ func getUSDRate(symbolID string, date string) (float64, error) {
 	if resp.StatusCode != http.StatusOK {
 		return 0, fmt.Errorf("unexpected status: %s", resp.Status)
 	} else {
-		log.Println("API successfully requested")
+		log.Println("API successfully requested | Symbol-Date: %s - %s", symbolID, date)
 	}
 	var result map[string]map[string]float64
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
