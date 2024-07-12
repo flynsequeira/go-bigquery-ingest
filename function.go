@@ -74,16 +74,12 @@ func TransformCSV(ctx context.Context, e event.Event) error {
 		return fmt.Errorf("Object(%q).NewReader: %w", data.Name, err)
 	}
 	defer r.Close()
-	log.Printf("GOT BUCKET AND GETTING SYMBOL")
-	// Load symbol_id_map.json
-
 	// Load symbol_id_map.json from GCP Storage
 	symbolMap, err := loadSymbolMapFromGCS(ctx, client, "blockdata-input", "symbol_id_map.json")
 	if err != nil {
 		return fmt.Errorf("Failed to load symbol map: %w", err)
 	}
 
-	log.Printf("obtained symbol map")
 	// Output setup (change as needed)
 	outputBucketName := "blockdata-output" // Or use a dynamic name
 	outputFileName := fmt.Sprintf("transformed_%s", data.Name)
@@ -106,9 +102,9 @@ func TransformCSV(ctx context.Context, e event.Event) error {
 	writer.Write(header)
 
 	log.Printf("Looping through records")
+	usdRateCache := make(map[string]float64)
 
 	for _, record := range records[1:] { // Skip the header row
-		log.Printf("Loop x")
 		ts := record[1]
 		projectID := record[3]
 		propsJSON := record[14]
@@ -120,23 +116,20 @@ func TransformCSV(ctx context.Context, e event.Event) error {
 		// Unmarshal JSON fields
 		err := json.Unmarshal([]byte(propsJSON), &props)
 		if err != nil {
-			// return fmt.Errorf("Error parsing currency value: %w", err)
-			fmt.Println("error")
+			fmt.Errorf("propsJsonParseError: %w", err)
 			continue
 		}
 
 		err = json.Unmarshal([]byte(numsJSON), &nums)
 		if err != nil {
-			// return fmt.Errorf("Error parsing currency value: %w", err)
-			fmt.Println("error")
+			fmt.Errorf("numsJsonParseError: %w", err)
 			continue
 		}
 
 		// Parse timestamp and format date
 		timestamp, err := time.Parse("2006-01-02 15:04:05.000", ts)
 		if err != nil {
-			// return fmt.Errorf("Error parsing currency value: %w", err)
-			fmt.Println("error")
+			fmt.Errorf("timeParseError: %w", err)
 			continue
 		}
 
@@ -146,33 +139,39 @@ func TransformCSV(ctx context.Context, e event.Event) error {
 		var currencyValueDecimal float64
 		_, err = fmt.Sscanf(nums.CurrencyValueDecimal, "%f", &currencyValueDecimal)
 		if err != nil {
-			fmt.Println("error")
+			fmt.Errorf("currencyValueDecimalError: %w", err)
 			continue
 		}
 
 		// Map CurrencySymbol to symbol_id
 		symbolID, ok := symbolMap[strings.ToLower(props.CurrencySymbol)]
 		if !ok {
-			fmt.Println("error")
+			fmt.Errorf("SymbolId not mapped(%s) | \n Error: %w", strings.ToLower(props.CurrencySymbol), err)
 			continue
 		}
 
+		// Check cache for USD rate
+		cacheKey := symbolID + "_" + date
+		usdRate, rateInCache := usdRateCache[cacheKey]
+
+		if !rateInCache {
+			// Get the conversion rate to USD
+			usdRate, err = getUSDRate(symbolID, date)
+			if err != nil {
+				fmt.Errorf("CacheKey(%s) | \n Error: %w", cacheKey, err)
+				continue
+			}
+			// Store rate in cache
+			usdRateCache[cacheKey] = usdRate
+		}
 		// Get the conversion rate to USD
-		usdValue, err := getUSDValue(symbolID, currencyValueDecimal, date)
-		if err != nil {
-			fmt.Println("error")
-			continue
-		}
-
+		usdValue := usdRate * currencyValueDecimal
 		// Create a unique key for the map
 		key := date + "_" + projectID
-
 		transformedRecord := []string{key, date, projectID, fmt.Sprintf("%.2f", currencyValueDecimal), symbolID, fmt.Sprintf("%.2f", usdValue)}
-
 		// Write the transformed record to the output CSV file
 		writer.Write(transformedRecord)
 	}
-	log.Printf("Transformed CSV: %s/%s", outputBucketName, outputFileName)
 	return nil
 }
 
@@ -195,9 +194,8 @@ func loadSymbolMapFromGCS(ctx context.Context, client *storage.Client, bucketNam
 }
 
 // getUSDValue gets the conversion rate to USD from CoinGecko API
-func getUSDValue(symbolID string, currencyValueDecimal float64, date string) (float64, error) {
+func getUSDRate(symbolID string, date string) (float64, error) {
 	url := fmt.Sprintf("https://api.coingecko.com/api/v3/simple/price?ids=%s&vs_currencies=usd&date=%s", symbolID, date)
-	log.Println("url:", url)
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return 0, fmt.Errorf("http.NewRequest: %w", err)
@@ -216,7 +214,7 @@ func getUSDValue(symbolID string, currencyValueDecimal float64, date string) (fl
 	if resp.StatusCode != http.StatusOK {
 		return 0, fmt.Errorf("unexpected status: %s", resp.Status)
 	} else {
-		log.Println("SUCCESS")
+		log.Println("API successfully requested")
 	}
 	var result map[string]map[string]float64
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
@@ -228,5 +226,5 @@ func getUSDValue(symbolID string, currencyValueDecimal float64, date string) (fl
 		return 0, fmt.Errorf("usd rate not found for symbol: %s", symbolID)
 	}
 
-	return usdRate * currencyValueDecimal, nil
+	return usdRate, nil
 }
