@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 
 	"cloud.google.com/go/pubsub"
 )
@@ -13,7 +14,7 @@ func publishToPubSub(ctx context.Context, topic *pubsub.Topic, transformed Trans
 	if err != nil {
 		return fmt.Errorf("json.Marshal: %w", err)
 	}
-
+	log.Printf("Transformed JSON Data: %s", string(jsonData))
 	msg := &pubsub.Message{
 		Data: jsonData,
 	}

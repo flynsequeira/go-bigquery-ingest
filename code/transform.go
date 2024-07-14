@@ -11,6 +11,9 @@ import (
 	"time"
 )
 
+var callCounter = 0   // CALL COUNTER
+var refTime time.Time // TIME THE FOR LOOP STARTS
+
 func processCSV(ctx context.Context, data StorageObjectData) error {
 	storageClient, err := getStorageClient(ctx)
 	if err != nil {
@@ -63,7 +66,13 @@ func processCSV(ctx context.Context, data StorageObjectData) error {
 
 	usdRateCache := make(map[string]float64)
 
+	// API LIMIT MANAGER
+	refTime = time.Now()
+
 	for i, record := range records[1:] {
+		// API LIMIT MANAGER FOR 30 API / MIN LIMIT
+		log.Printf("CallCounter = %d", callCounter)
+
 		transformed, err := transformRecord(record, symbolMap, &usdRateCache)
 		if err != nil {
 			log.Printf("Error transforming record %d: %v", i, err)
@@ -82,7 +91,7 @@ func processCSV(ctx context.Context, data StorageObjectData) error {
 		if err := writer.Write(csvRecord); err != nil {
 			log.Printf("Error writing CSV record: %v", err)
 		}
-
+		log.Printf("Attempting publish %s | Topic: %s", transformed.Key, topic)
 		if err := publishToPubSub(ctx, topic, transformed); err != nil {
 			log.Printf("Error publishing to Pub/Sub: %v", err)
 		}
@@ -145,7 +154,40 @@ func transformRecord(record []string, symbolMap map[string]string, usdRateCache 
 			return Transformed{}, fmt.Errorf("CacheKey(%s) | Error: %w", cacheKey, err)
 		}
 		(*usdRateCache)[cacheKey] = usdRate
+		callCounter++
+		if callCounter >= 5 {
+			log.Printf("Time To Sleep!")
+			time.Sleep(60)
+			callCounter = 0
+		}
 	}
+
+	// Retry logic starts here
+	// var maxRetries = 3 // Maximum number of retries
+	// var retryCount = 0
+	// for retryCount < maxRetries {
+	//     if !rateInCache {
+	//         usdRate, err = getUSDRate(symbolID, date)
+	//         if err != nil {
+	//             if strings.Contains(err.Error(), "429 Too Many Requests") {
+	//                 retryCount++
+	//                 log.Printf("Retrying in 10 seconds (Attempt %d)...", retryCount)
+	//                 time.Sleep(10 * time.Second)
+	//                 continue  // Go to the next iteration of the loop to retry
+	//             } else {
+	//                 // Other errors are not retried
+	//                 return Transformed{}, fmt.Errorf("CacheKey(%s) | Error: %w", cacheKey, err)
+	//             }
+	//         }
+	//         (*usdRateCache)[cacheKey] = usdRate
+	//         callCounter++ // Only increment callCounter for successful requests
+	//     }
+	//     break // Exit the loop if the API call was successful
+	// }
+
+	// if retryCount == maxRetries {
+	//     return Transformed{}, fmt.Errorf("reached maximum retries for CacheKey(%s)", cacheKey)
+	// }
 
 	usdValue := usdRate * currencyValueDecimal
 

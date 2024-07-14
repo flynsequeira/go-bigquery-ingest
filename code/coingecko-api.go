@@ -15,7 +15,7 @@ func getUSDRate(symbolID string, date string) (float64, error) {
 	}
 
 	req.Header.Set("accept", "application/json")
-	req.Header.Set("x-cg-api-key", "CG-MpAym1juMY83MMxEqGK3QBzT")
+	req.Header.Set("x-cg-api-key", "API_KEY	")
 
 	client := &http.Client{}
 	resp, err := client.Do(req)
