@@ -1,0 +1,8 @@
+SELECT 
+    date,
+    project_id, 
+    COUNT(volume) AS total_transactions,
+    SUM(volume_usd) AS total_volume_in_usd 
+  FROM `blockdataproject.blockdata.staging`
+  where volume_usd<1000
+  GROUP BY date, project_id
