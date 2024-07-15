@@ -1,4 +1,4 @@
-# go-bq-ingestor
+# go-bq-ingester
 This is a repository that has all the pieces to ingest data from CSV -> GO -> Big Query
 
 # Where to focus
