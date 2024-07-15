@@ -1,6 +1,7 @@
 # go-bq-ingestor
 This is a repository that has all the pieces to ingest data from CSV -> GO -> Big Query
-# Working demo available here - https://youtu.be/mTveDBGiHTE
+## Working demo available here - https://youtu.be/mTveDBGiHTE
+## Complete documentation PDF - https://github.com/flynsequeira/go-bq-ingestor/blob/main/bigQuery_Go_Ingestor.pdf
 
 # Requirements
 
@@ -25,7 +26,7 @@ This is a repository that has all the pieces to ingest data from CSV -> GO -> Bi
 
 # Architecture
 
-![architecture.png](https://prod-files-secure.s3.us-west-2.amazonaws.com/52e43d82-ebd1-4510-902d-bccbd5420e1c/0f111acb-a13d-4a73-a04e-f975bffe0f94/architecture.png)
+![architecture.png](https://raw.githubusercontent.com/flynsequeira/go-bq-ingestor/main/architecture.png)
 
 # Solution: Entire Process
 
