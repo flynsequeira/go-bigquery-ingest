@@ -134,7 +134,7 @@ Optimally this needs to be resolved at the transform.go function in GCP Cloud fu
 
 On analysing te data I figured out most data is of range 1,2,3 digits. (since all data is close to 1 usd, I’m going to make all the currencies comparible for this analytics (ignoring precision)
 
-![Untitled](https://prod-files-secure.s3.us-west-2.amazonaws.com/52e43d82-ebd1-4510-902d-bccbd5420e1c/65fa32b3-b024-4feb-934a-c10ba70f9d24/Untitled.png)
+![Untitled](https://raw.githubusercontent.com/flynsequeira/go-bq-ingestor/main/resources/distribution_img.png)
 
 - Since digits of “MATIC” have length of 18,19,20 corresponds to 1,2,3, I’m dividing the values by 10^18 - resulting in their values ranging from 0.xx to xx.xx
 - For usdc, or usdc.e, some values in decimalValue inconsistently have 7 digits or zero to 1 digits  - I’m going to divide any data who’s length is 7 to be divided by 10^7
