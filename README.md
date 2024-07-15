@@ -4,7 +4,9 @@ This is a repository that has all the pieces to ingest data from CSV -> GO -> Bi
 # Where to focus
 1. Working video available here - https://youtu.be/mTveDBGiHTE
 2. Complete documentation PDF - https://github.com/flynsequeira/go-bq-ingestor/blob/8d3e600f9e31f43c8d532ac954e9ea1e4923613b/DOCUMENTATION.pdf
-3. code folder - has all the GO transformation and api code for google cloud functions
+3. code folder 
+    - has all the GO transformation and api code for google cloud functions
+    - main function is function.go
 4. api-data - This has json to map currency_symbol -> symbol_id
 5. analytics - has additional analytics i did on ipynb notebook
 6. data - variety of input and output csv. 
