@@ -1,0 +1,38 @@
+[
+    {
+        "name": "key",
+        "type": "STRING",
+        "mode": "REQUIRED",
+        "description": "txnHash always exists for a transaction, but if it doesn't exist, it needs to be evaluated. It won't significantly impact analytics, but it would come faster to attention later on. "
+    },
+    {
+        "name": "date",
+        "type": "DATE",
+        "mode": "REQUIRED",
+        "description": "PARTITIONED BY DAY. CLUSTERING ORDER"
+    },
+    {
+        "name": "project_id",
+        "type": "STRING",
+        "mode": "REQUIRED",
+        "description": "CLUSTERING ORDER"
+    },
+    {
+        "name": "volume",
+        "type": "FLOAT",
+        "mode": "NULLABLE",
+        "description": "Float since the numbers are generally smaller transaction. Large numbers are assumed not to be necessary, and precesion beyond certain number for our dataset. Nullable for freebies"
+    },
+    {
+        "name": "currency",
+        "type": "STRING",
+        "mode": "REQUIRED",
+        "description": "can't convert without currency. Needs to be DLQ'd if it comes through for some reason"
+    },
+    {
+        "name": "volume_usd",
+        "type": "FLOAT",
+        "mode": "NULLABLE",
+        "description": "USD doesn't make sense beyond xx.yy\nFloat is our best bet. Nullable for freebies"
+    }
+]

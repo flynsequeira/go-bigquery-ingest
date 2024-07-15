@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-	"strconv"
 	"strings"
 	"time"
 )
@@ -14,7 +13,7 @@ import (
 var callCounter = 0   // CALL COUNTER
 var refTime time.Time // TIME THE FOR LOOP STARTS
 
-const maxCallsPerMinute = 5
+const maxCallsPerMinute = 3
 const timeWindowSeconds = 60
 
 var requestTimestamps []time.Time
@@ -76,11 +75,11 @@ func processCSV(ctx context.Context, data StorageObjectData) error {
 
 	for i, record := range records[1:] {
 		// API LIMIT MANAGER FOR 30 API / MIN LIMIT
-		log.Printf("CallCounter = %d", callCounter)
 
 		transformed, err := transformRecord(record, symbolMap, &usdRateCache)
+		log.Printf("Transforming record %d", i)
 		if err != nil {
-			log.Printf("Error transforming record %d: %v", i, err)
+			log.Printf("Error: %v", err)
 			continue
 		}
 
@@ -88,7 +87,7 @@ func processCSV(ctx context.Context, data StorageObjectData) error {
 		csvRecord := []string{
 			transformed.Key,
 			transformed.Date,
-			strconv.Itoa(transformed.ProjectID),
+			transformed.ProjectID,
 			fmt.Sprintf("%.2f", transformed.Volume),
 			transformed.Currency,
 			fmt.Sprintf("%.2f", transformed.VolumeUSD),
@@ -132,6 +131,8 @@ func transformRecord(record []string, symbolMap map[string]string, usdRateCache 
 		return Transformed{}, fmt.Errorf("numsJsonParseError: %w", err)
 	}
 
+	key := props.TransactionHash
+
 	timestamp, err := time.Parse("2006-01-02 15:04:05.000", ts)
 	if err != nil {
 		return Transformed{}, fmt.Errorf("timeParseError: %w", err)
@@ -168,6 +169,8 @@ func transformRecord(record []string, symbolMap map[string]string, usdRateCache 
 			return Transformed{}, fmt.Errorf("CacheKey(%s) | Error: %w", cacheKey, err)
 		}
 		(*usdRateCache)[cacheKey] = usdRate
+		callCounter++
+		log.Printf("CallCounter = %d", callCounter)
 
 		// Add timestamp to the end of the slice and remove the oldest one if the slice exceeds the limit
 		requestTimestamps = append(requestTimestamps, now)
@@ -178,8 +181,6 @@ func transformRecord(record []string, symbolMap map[string]string, usdRateCache 
 
 	usdValue := usdRate * currencyValueDecimal
 
-	key := date + "_" + projectID
-	projectIDInt, err := strconv.Atoi(projectID)
 	if err != nil {
 		return Transformed{}, fmt.Errorf("projectIDParseError: %w", err)
 	}
@@ -187,7 +188,7 @@ func transformRecord(record []string, symbolMap map[string]string, usdRateCache 
 	return Transformed{
 		Key:       key,
 		Date:      date,
-		ProjectID: projectIDInt,
+		ProjectID: projectID,
 		Volume:    currencyValueDecimal,
 		Currency:  symbolID,
 		VolumeUSD: usdValue,

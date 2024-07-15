@@ -1,0 +1,38 @@
+[
+    {
+        "name": "key",
+        "type": "STRING",
+        "mode": "NULLABLE",
+        "description": "txnHash always exists for a transaction, but if it doesn't exist, it needs to be evaluated. It won't significantly impact analytics, but it would come faster to attention later on."
+    },
+    {
+        "name": "date",
+        "type": "DATE",
+        "mode": "NULLABLE",
+        "description": "Not partitioned or clustered. This is a DLQ table, so it's not necessary. It's just a place to store the data that needs to be evaluated."
+    },
+    {
+        "name": "project_id",
+        "type": "STRING",
+        "mode": "NULLABLE",
+        "description": "Not cluster. This is a DLQ table, so it's not necessary. It's just a place to store the data that needs to be evaluated."
+    },
+    {
+        "name": "volume",
+        "type": "FLOAT",
+        "mode": "NULLABLE",
+        "description": "overflowing numbers can fit here"
+    },
+    {
+        "name": "currency",
+        "type": "STRING",
+        "mode": "NULLABLE",
+        "description": "can't convert without currency. Needs to be DLQ'd if it comes through for some reason"
+    },
+    {
+        "name": "volume_usd",
+        "type": "FLOAT",
+        "mode": "NULLABLE",
+        "description": "overflowing numbers can fit here"
+    }
+]

@@ -11,7 +11,8 @@ type StorageObjectData struct {
 }
 
 type Props struct {
-	CurrencySymbol string `json:"currencySymbol"`
+	CurrencySymbol  string `json:"currencySymbol"`
+	TransactionHash string `json:"txnHash"`
 }
 
 type Nums struct {
@@ -28,7 +29,7 @@ type TransformedRecord struct {
 type Transformed struct {
 	Key       string  `json:"key"`
 	Date      string  `json:"date"`
-	ProjectID int     `json:"project_id"`
+	ProjectID string  `json:"project_id"`
 	Volume    float64 `json:"volume"`
 	Currency  string  `json:"currency"`
 	VolumeUSD float64 `json:"volume_usd"`
