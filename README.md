@@ -35,7 +35,8 @@ This repository provides a complete data pipeline for processing cryptocurrency 
 
 ## Architecture
 
-![Image of architecture.png](https://raw.githubusercontent.com/flynsequeira/go-bq-ingestor/main/resources/architecture.png)
+![Image of architecture.png](https://raw.githubusercontent.com/flynsequeira/go-bigquery-ingest/main/resources/archi_black.png)
+
 
 ## Detailed Solution
 
