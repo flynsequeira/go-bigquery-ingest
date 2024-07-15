@@ -1,7 +1,13 @@
 # go-bq-ingestor
 This is a repository that has all the pieces to ingest data from CSV -> GO -> Big Query
-## Working demo available here - https://youtu.be/mTveDBGiHTE
-## Complete documentation PDF - https://github.com/flynsequeira/go-bq-ingestor/blob/8d3e600f9e31f43c8d532ac954e9ea1e4923613b/DOCUMENTATION.pdf
+
+# Where to focus
+1. Working demo available here - https://youtu.be/mTveDBGiHTE
+2. Complete documentation PDF - https://github.com/flynsequeira/go-bq-ingestor/blob/8d3e600f9e31f43c8d532ac954e9ea1e4923613b/DOCUMENTATION.pdf
+3. code folder - has all the GO transformation and api code for google cloud functions
+4. api-data - This has json to map currency_symbol -> symbol_id
+5. analytics - has additional analytics i did on ipynb notebook
+6. data - variety of input and output csv. 
 
 # Requirements
 
@@ -113,6 +119,14 @@ volume_usd and volume with extremely high number exceeded “`FLOAT`”, and the
 ```python
 {"key":"2024-04-02_1609","date":"2024-04-02","project_id":1609,"volume":2565000000000000000,"currency":"matic-network","volume_usd":1355392170000000300}
 ```
+
+### Analysing unusual DLQ
+
+```python
+{"currency":"usdc-rainbow-bridge","date":"2024-04-01","key":"0x420cac3c8566054b8b0623c8556210b720bc1ea1a8bc8feb2ee4e1be949b72ce","project_id":"4974","volume":1110000,"volume_usd":1105140.42}
+```
+This record didn't have too high of a value, but the volume field doesn't have a decimal. I'm going to republish the same record directly from the pub/sub topic with decimal points and see if they go through for this project. 
+Optimally this needs to be resolved at the transform.go function in GCP Cloud functions
 
 ### Data Inconsistency problem
 
