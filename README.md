@@ -62,6 +62,19 @@ if callCounter >= 5 {
 ### Part 3: BigQuery Materialized View
 
 *   **Staging Table:**  Stores transformed data before aggregation.
+  
+     **Solution 1: BigQuery Staging Table Aggregated to Sink [SELECTED]**
+  
+         - Extract, clean, and filter data, then drop it into a staging table.
+         - Aggregate the staging table in BigQuery into a materialized view.
+    
+     **~~Solution 2: Aggregate in Go with Memory~~**
+    
+         - Not viable at the moment as it needs to be scalable.
+         - Possible with a smaller dataset, but scalability is assumed to be necessary.
+
+     **Chosen Approach:** Solution 1.
+
 *   **Materialized view:**  Aggregates data by `DATE` and `PROJECT_ID`, calculating `total_transactions` and `total_volume_in_usd` for efficient querying.
 *   **Materialized view Cleaned:**  Cleans and filters potential bad data
 ```sql
@@ -130,8 +143,6 @@ if callCounter >= 5 {
 
 By incorporating this rate limiter, I ensured that the API calls stayed within the permitted limit, preventing any overload issues.
 
-
-
 ## DEAD LETTER QUEUE ANALYSIS
 
 ### Potential Points of Failure Requiring DLQ
@@ -169,29 +180,7 @@ Upon analyzing the data, I found that most values range between 1 to 3 digits. S
 
 - For "MATIC", where digits range from 18 to 20, corresponding to 1, 2, and 3, I'm dividing the values by \(10^{18}\), resulting in values ranging from 0.xx to xx.xx.
 - For "USDC" or "USDC.e", some values in `decimalValue` inconsistently have 7 digits or range from zero to 1 digit. I'm dividing any data with a length of 7 by \(10^{7}\).
-## PART 3: Big Query Staging
 
-- **Aggregation** by - DATE and PROJECT ID
-    - sum(transaction)
-    - sum(vol_in_usd)
-- **Target** Table would look like this
-
-| DATE | PROJECT_ID | NUM_TRANSACTIONS | TOTAL_VOLUME_IN_USD |
-| --- | --- | --- | --- |
-| 5/10/2024 | 1001 | 4 | 500 |
-| 5/11/2024 | 1001 | 10 | 1000 |
-
-### Solution 1: Big Query Staging Table Aggregated to Sink [SELECTED]
-
-1. Extract, clean, filter data and drop it into a staging table
-2. Aggregate staging table on BigQuery into a materialized view.
-
-### ~~Solution 2: Aggregate on Go itself with memory~~
-
-- Not viable at the moment since we’d have to make it scalable.
-- It’s definitely possible with our much smaller dataset for our usecase. But I’ll make the assumption that the problem needs to be scalable.
-
-I went with solution 1. 
 
 ### What didn’t work
 
