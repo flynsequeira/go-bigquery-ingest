@@ -170,7 +170,7 @@ Here’s an example of an unusual record that landed in the DLQ:
 {"currency":"usdc-rainbow-bridge","date":"2024-04-01","key":"0x420cac3c8566054b8b0623c8556210b720bc1ea1a8bc8feb2ee4e1be949b72ce","project_id":"4974","volume":1110000,"volume_usd":1105140.42}
 ```
 
-This record didn't have excessively high values, but the `volume` field lacked a decimal. I plan to republish the same record directly from the Pub/Sub topic with decimal points to see if they go through for this project. Optimally, this needs to be resolved in the `transform.go` function within GCP Cloud Functions.
+This record didn't have excessively high values, but the `volume` field lacked a decimal. I republished the same record directly from the Pub/Sub topic with decimal points to see if they went through for this project, and they did. So, in conclusion, in Go, JSON, Marshal omits .0 for whole number floats, causing BigQuery schema mismatches. The use of Avro for data serialization could ensure correct float representation and schema compatibility across Pub/Sub and BigQuery.
 
 ### Data Inconsistency Problem
 
